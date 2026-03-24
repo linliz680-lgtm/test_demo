@@ -72,8 +72,6 @@
     const Sparkles = (p) => <SvgIcon {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/></SvgIcon>;
     const Send = (p) => <SvgIcon {...p}><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></SvgIcon>;
     const FileJson = (p) => <SvgIcon {...p}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 12a1 1 0 0 0-1 1v1a1 1 0 0 1-1 1 1 1 0 0 1 1 1v1a1 1 0 0 0 1 1"/><path d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1"/></SvgIcon>;
-    const ImagePlus = (p) => <SvgIcon {...p}><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/><path d="M16 5h6"/><path d="M19 2v6"/></SvgIcon>;
-    const X = (p) => <SvgIcon {...p}><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></SvgIcon>;
 
     // --- 基础数据快照 ---
     const baseMethods = [
@@ -93,7 +91,6 @@
       const [menuExpanded, setMenuExpanded] = useState(true);
       const [selectedMethodId, setSelectedMethodId] = useState(1);
       const chatScrollRef = useRef(null);
-      const fileInputRef = useRef(null);
 
       // --- 业务数据状态 ---
       const [methods, setMethods] = useState(baseMethods);
@@ -103,7 +100,6 @@
       // --- 播放控制状态 ---
       const [playStep, setPlayStep] = useState(0);
       const [chatInput, setChatInput] = useState('');
-      const [attachedImage, setAttachedImage] = useState(null);
 
       // --- 联动逻辑：监听 playStep 变化，更新左侧表格 ---
       useEffect(() => {
@@ -779,56 +775,17 @@
                 ))}
               </div>
               
-              {/* 输入区域 (交互化，支持图片上传) */}
+              {/* 输入区域 (无图片上传交互版本) */}
               <div className="p-3 bg-white border-t border-gray-200 shrink-0">
-                {/* 预览附件 */}
-                {attachedImage && (
-                  <div className="mb-2 relative inline-block animate-fadeIn">
-                     <div className="h-14 w-auto min-w-[3.5rem] max-w-[8rem] bg-gray-100 border border-gray-200 rounded flex items-center justify-center overflow-hidden">
-                       <img src={attachedImage} alt="preview" className="h-full w-full object-cover" />
-                     </div>
-                     <button onClick={() => setAttachedImage(null)} className="absolute -top-1.5 -right-1.5 bg-gray-500 hover:bg-red-500 text-white rounded-full p-0.5 shadow-sm transition-colors">
-                       <X className="w-3 h-3" />
-                     </button>
-                  </div>
-                )}
-
                 <div className="relative flex items-end border border-gray-300 rounded-lg bg-gray-50 transition-all shadow-sm focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500">
-                  {/* 隐藏的文件上传组件 */}
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setAttachedImage(URL.createObjectURL(file));
-                        if (!chatInput) setChatInput("bindImeiInfo");
-                      }
-                      e.target.value = ''; // 重置 input 以允许重复选择同名文件
-                    }} 
-                  />
-                  
-                  <button 
-                    disabled={playStep !== 7}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`p-2 m-1.5 rounded-md transition-colors shrink-0 flex items-center justify-center ${
-                      playStep === 7 ? 'text-gray-500 hover:bg-gray-200 hover:text-blue-600 cursor-pointer' : 'text-gray-300 cursor-not-allowed'
-                    }`}
-                    title="上传图片"
-                  >
-                    <ImagePlus className="w-4 h-4" />
-                  </button>
-
                   <textarea 
-                    className={`w-full bg-transparent max-h-32 min-h-[44px] py-3 pr-2 text-xs outline-none resize-none ${
+                    className={`w-full bg-transparent max-h-32 min-h-[44px] py-3 px-3 text-xs outline-none resize-none ${
                       playStep === 7 ? 'text-gray-700 cursor-text' : 'text-gray-500 cursor-not-allowed'
                     }`}
                     placeholder={
                       playStep === 1 ? "请在上方点击选择「batchBindIMEI」" :
                       playStep === 2 ? "请在上方点击「生成参数」" :
-                      playStep === 7 ? "请点击左侧 🖼️ 上传图片或直接输入..." :
+                      playStep === 7 ? "请直接输入..." :
                       playStep < PREDEFINED_CHAT.length ? `[自动演示联动中...] 下一步将在 5 秒后触发` : "演示完毕。"
                     }
                     rows={1}
@@ -838,25 +795,23 @@
                     onKeyDown={(e) => {
                       if(e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        if(playStep === 7 && (chatInput || attachedImage)) {
+                        if(playStep === 7 && chatInput) {
                           setPlayStep(8);
                           setChatInput('');
-                          setAttachedImage(null);
                         }
                       }
                     }}
                   />
                   <button 
-                    disabled={playStep !== 7 || (!chatInput && !attachedImage)}
+                    disabled={playStep !== 7 || !chatInput}
                     onClick={() => {
-                      if(playStep === 7 && (chatInput || attachedImage)) {
+                      if(playStep === 7 && chatInput) {
                         setPlayStep(8);
                         setChatInput('');
-                        setAttachedImage(null);
                       }
                     }}
                     className={`p-2 m-1.5 rounded-md transition-colors shrink-0 shadow-sm flex items-center justify-center ${
-                      playStep === 7 && (chatInput || attachedImage) ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      playStep === 7 && chatInput ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }`}
                   >
                     <Send className="w-3.5 h-3.5" />
