@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三方接口定制系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* 画布连线 SVG 容器 */
+        #svg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* 节点连线动画 */
+        .dash-line {
+            stroke-dasharray: 6;
+            animation: dash 20s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -200; }
+        }
+
+        /* 菜单样式复刻 */
+        .menu-header-bg { background-color: #2b2b2b; }
+        .menu-header-text { color: #8b5cf6; text-shadow: 0 0 10px rgba(139, 92, 246, 0.3); }
+        .menu-item-active { 
+            background-color: #f0f0f0; 
+            border-left: 3px solid #3b82f6; 
+            font-weight: 500;
+            color: #111827;
+        }
+        .menu-item-inactive {
+            border-left: 3px solid transparent;
+            color: #374151;
+        }
+        .menu-item-inactive:hover {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen overflow-hidden flex font-sans">
+
+    <!-- 左侧侧边栏 -->
+    <div class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 relative z-20 shadow-sm">
+        <!-- 头部 LOGO -->
+        <div class="h-14 menu-header-bg flex items-center px-4 flex-shrink-0">
+            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span class="ml-2 font-bold text-sm tracking-wide menu-header-text">三方接口智能定制</span>
+        </div>
+
+        <!-- 菜单列表区 -->
+        <div class="flex-1 overflow-y-auto py-2" id="menu-container">
+            <!-- JavaScript 动态渲染菜单 -->
+        </div>
+    </div>
+
+    <!-- 右侧主体内容 (画布) -->
+    <div class="flex-1 flex flex-col relative overflow-hidden bg-gray-50">
+        <!-- 顶栏状态 -->
+        <div class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-20 shadow-sm flex-shrink-0">
+            <div class="flex items-center">
+                <div class="flex items-center space-x-2 text-sm text-gray-500" id="breadcrumb">
+                    <!-- 面包屑动态渲染 -->
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200" id="current-mode-badge">
+                    请选择实例
+                </span>
+            </div>
+        </div>
+
+        <!-- 画布滚动区 -->
+        <div class="flex-1 overflow-auto relative p-8" id="canvas-scroll-area">
+            <svg id="svg-canvas"></svg>
+            <div class="max-w-6xl mx-auto flex justify-between relative z-10" id="graph-container">
+                <!-- 左列: Inbound 接口 -->
+                <div class="w-2/5 flex flex-col space-y-10" id="inbound-col"></div>
+                <!-- 右列: Outbound 接口 -->
+                <div class="w-2/5 flex flex-col space-y-10 mt-16" id="outbound-col"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SVG 图标库 -->
+    <template id="icon-book">
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+    </template>
+    <template id="icon-folder">
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+    </template>
+    <template id="icon-folder-open">
+        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
+    </template>
+    <template id="icon-file">
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+    </template>
+
+    <script>
+        // 核心数据模型
+        const businessData = {
+            scenes: [
+                {
+                    id: 'paybill', name: 'PAY BILL',
+                    subScenes: [
+                        {
+                            id: 'utilities', name: '缴水电费',
+                            instances: [
+                                { id: 'base', name: '全局基线标准版', type: 'baseline' },
+                                { id: 'mali_edm', name: '马里 EDM', type: 'custom' },
+                                { id: 'mali_energia', name: 'Mali ENERGIA', type: 'custom' }
+                            ]
+                        },
+                        {
+                            id: 'tv', name: 'TV频道',
+                            instances: [
+                                { id: 'base', name: '全局基线标准版', type: 'baseline' },
+                                { id: 'startimes', name: 'StarTimes 频道', type: 'custom' }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            // 接口全集，拆分出 transparentParameters 和 referenceData
+            interfaces: [
+                {
+                    id: 'In_PayBillCreate', name: '缴费单创建 (PayBillCreate)', type: 'inbound', targetIds: ['Out_VendorQuery', 'Out_VendorPay'], subScene: 'utilities',
+                    baseFields: ['transactionId', 'amount', 'currency'],
+                    transparentParameters: {
+                        'base': ['extData1', 'extData2'],
+                        'mali_edm': ['meterNumber (电表号)', 'customerName (户主名)'],
+                        'mali_energia': ['smartCardNo (智能卡号)', 'districtCode']
+                    },
+                    referenceData: {
+                        'base': ['sys_trace_id'],
+                        'mali_edm': ['sys_trace_id', 'sys_tenant_id (租户ID)'],
+                        'mali_energia': ['sys_trace_id', 'client_ip (请求端IP)', 'sys_region_code']
+                    }
+                },
+                {
+                    id: 'Out_VendorQuery', name: '厂家欠费查询 (VendorQuery)', type: 'outbound', subScene: 'utilities',
+                    baseFields: ['vendorCode', 'queryType'],
+                    transparentParameters: {
+                        'base': ['extData1'],
+                        'mali_edm': ['meterNumber (电表号)'],
+                        'mali_energia': ['smartCardNo (智能卡号)']
+                    },
+                    referenceData: {
+                        'base': ['sys_trace_id'],
+                        'mali_edm': ['sys_trace_id', 'sys_tenant_id'],
+                        'mali_energia': ['sys_trace_id']
+                    }
+                },
+                {
+                    id: 'Out_VendorPay', name: '厂家代付发起 (VendorPay)', type: 'outbound', subScene: 'utilities',
+                    baseFields: ['vendorCode', 'amount', 'payMethod'],
+                    transparentParameters: {
+                        'base': ['extData1', 'extData2'],
+                        'mali_edm': ['meterNumber', 'customerName', 'edm_token'],
+                        'mali_energia': ['smartCardNo', 'energia_receipt']
+                    },
+                    referenceData: {
+                        'base': ['sys_trace_id'],
+                        'mali_edm': ['sys_trace_id', 'sys_tenant_id'],
+                        'mali_energia': ['sys_trace_id', 'sys_region_code']
+                    }
+                },
+                {
+                    id: 'In_TvSubscribe', name: '套餐开通 (TvSubscribe)', type: 'inbound', targetIds: ['Out_TvNotify'], subScene: 'tv',
+                    baseFields: ['packageId', 'duration', 'userId'],
+                    transparentParameters: {
+                        'base': ['extInfo'],
+                        'startimes': ['decoderSerialNumber (解码器号)', 'smartCardId']
+                    },
+                    referenceData: {
+                        'base': ['sys_trace_id'],
+                        'startimes': ['sys_trace_id', 'dealer_id (经销商ID)']
+                    }
+                },
+                {
+                    id: 'Out_TvNotify', name: '厂家开通通知 (TvNotify)', type: 'outbound', subScene: 'tv',
+                    baseFields: ['vendorCode', 'packageId'],
+                    transparentParameters: {
+                        'base': ['extInfo'],
+                        'startimes': ['decoderSerialNumber (解码器号)']
+                    },
+                    referenceData: {
+                        'base': ['sys_trace_id'],
+                        'startimes': ['sys_trace_id', 'dealer_id']
+                    }
+                }
+            ]
+        };
+
+        // UI 状态
+        let state = {
+            expandedFolders: ['utilities'],
+            selectedSubScene: 'utilities',
+            selectedInstance: 'mali_edm'
+        };
+
+        function getIconHtml(templateId) {
+            return document.getElementById(templateId).innerHTML;
+        }
+
+        // ==================== 1. 渲染左侧菜单 ====================
+        function renderSidebar() {
+            const container = document.getElementById('menu-container');
+            let html = `
+                <div class="px-4 py-3 flex items-center cursor-pointer menu-item-inactive text-sm transition-colors" onclick="alert('系统概览开发中...')">
+                    ${getIconHtml('icon-book')} <span class="ml-3">全部概览</span>
+                </div>
+                <div class="px-4 py-2 mt-4 mb-1 text-xs text-gray-400">流程分类</div>
+            `;
+
+            businessData.scenes.forEach(scene => {
+                html += `<div class="px-4 py-2 mt-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider">${scene.name}</div>`;
+                
+                scene.subScenes.forEach(sub => {
+                    const isExpanded = state.expandedFolders.includes(sub.id);
+                    html += `
+                        <div class="px-4 py-2.5 flex items-center justify-between cursor-pointer menu-item-inactive transition-colors" onclick="toggleFolder('${sub.id}')">
+                            <div class="flex items-center">
+                                ${isExpanded ? getIconHtml('icon-folder-open') : getIconHtml('icon-folder')}
+                                <span class="ml-3 text-sm">${sub.name}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    if (isExpanded) {
+                        sub.instances.forEach(inst => {
+                            const isSelected = state.selectedSubScene === sub.id && state.selectedInstance === inst.id;
+                            const activeClass = isSelected ? 'menu-item-active' : 'menu-item-inactive';
+                            
+                            html += `
+                                <div class="py-2.5 pl-12 pr-4 flex items-center cursor-pointer transition-colors text-sm ${activeClass}" onclick="selectInstance('${sub.id}', '${inst.id}')">
+                                    ${getIconHtml('icon-file')}
+                                    <span class="ml-2">${inst.name}</span>
+                                    ${inst.type === 'custom' ? '<span class="ml-auto w-2 h-2 rounded-full bg-green-400"></span>' : ''}
+                                </div>
+                            `;
+                        });
+                    }
+                });
+            });
+            container.innerHTML = html;
+        }
+
+        window.toggleFolder = function(subId) {
+            if (state.expandedFolders.includes(subId)) {
+                state.expandedFolders = state.expandedFolders.filter(id => id !== subId);
+            } else {
+                state.expandedFolders.push(subId);
+            }
+            renderSidebar();
+        }
+
+        window.selectInstance = function(subId, instId) {
+            state.selectedSubScene = subId;
+            state.selectedInstance = instId;
+            renderSidebar();
+            renderCanvas();
+        }
+
+        // ==================== 2. 渲染右侧画布 ====================
+        function renderCanvas() {
+            updateBreadcrumb();
+            
+            const inCol = document.getElementById('inbound-col');
+            const outCol = document.getElementById('outbound-col');
+            inCol.innerHTML = '';
+            outCol.innerHTML = '';
+
+            const sceneInterfaces = businessData.interfaces.filter(i => i.subScene === state.selectedSubScene);
+            
+            sceneInterfaces.forEach(interf => {
+                const isBase = state.selectedInstance === 'base';
+                
+                // 获取透传参数与引用参数（如果没有定制，降级展示基础的空数据保护）
+                const transparentParams = interf.transparentParameters[state.selectedInstance] || interf.transparentParameters['base'] || [];
+                const referenceParams = interf.referenceData[state.selectedInstance] || interf.referenceData['base'] || [];
+                
+                const cardHtml = `
+                    <div id="${interf.id}" class="bg-white border ${isBase ? 'border-gray-200' : 'border-indigo-100'} rounded-xl shadow-sm hover:shadow-md transition-shadow relative z-20 w-full overflow-hidden">
+                        <!-- 卡片头部 -->
+                        <div class="${isBase ? 'bg-gray-50 text-gray-700' : 'bg-indigo-50 text-indigo-900'} px-4 py-3 border-b ${isBase ? 'border-gray-200' : 'border-indigo-100'} flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white ${interf.type === 'inbound' ? 'bg-blue-500' : 'bg-teal-500'}">${interf.type.toUpperCase()}</span>
+                                <span class="font-medium text-sm">${interf.name}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 1. 预定义业务字段 -->
+                        <div class="px-4 py-3">
+                            <div class="text-xs text-gray-400 mb-2 font-medium flex items-center">
+                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                                预定义业务字段 (Standard)
+                            </div>
+                            <div class="space-y-1.5">
+                                ${interf.baseFields.map(f => `<div class="text-xs bg-gray-50 border border-gray-100 px-2 py-1.5 rounded text-gray-600 font-mono">${f}</div>`).join('')}
+                            </div>
+                        </div>
+
+                        <!-- 2. 透传定制参数区 (Transparent Parameters) -->
+                        ${transparentParams.length > 0 ? `
+                        <div class="px-4 py-3 bg-gradient-to-b from-transparent to-blue-50/30 border-t border-dashed border-gray-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="text-xs font-medium flex items-center ${isBase ? 'text-gray-500' : 'text-blue-600'}">
+                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                    透传定制参数 (Transparent)
+                                </div>
+                                ${!isBase ? `<span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">局点定制</span>` : ''}
+                            </div>
+                            <div class="space-y-1.5">
+                                ${transparentParams.map(f => `
+                                    <div class="text-xs px-2 py-1.5 rounded font-mono border flex items-center 
+                                        ${isBase ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm'}">
+                                        ${f}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <!-- 3. 系统引用定制参数区 (Reference Data) -->
+                        ${referenceParams.length > 0 ? `
+                        <div class="px-4 py-3 bg-gradient-to-b from-transparent to-purple-50/30 border-t border-dashed border-gray-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="text-xs font-medium flex items-center ${isBase ? 'text-gray-500' : 'text-purple-600'}">
+                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    系统引用定制 (Reference)
+                                </div>
+                                ${!isBase ? `<span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">系统获取</span>` : ''}
+                            </div>
+                            <div class="space-y-1.5">
+                                ${referenceParams.map(f => `
+                                    <div class="text-xs px-2 py-1.5 rounded font-mono border flex items-center 
+                                        ${isBase ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-purple-50 text-purple-700 border-purple-200 shadow-sm'}">
+                                        ${f}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 连线锚点 -->
+                        ${interf.type === 'inbound' ? `<div class="absolute right-0 top-1/2 -mt-2 -mr-2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full z-30 pointer-events-none anchor-out"></div>` : ''}
+                        ${interf.type === 'outbound' ? `<div class="absolute left-0 top-1/2 -mt-2 -ml-2 w-4 h-4 bg-white border-2 border-teal-400 rounded-full z-30 pointer-events-none anchor-in"></div>` : ''}
+                    </div>
+                `;
+
+                if (interf.type === 'inbound') {
+                    inCol.insertAdjacentHTML('beforeend', cardHtml);
+                } else {
+                    outCol.insertAdjacentHTML('beforeend', cardHtml);
+                }
+            });
+
+            setTimeout(drawConnections, 50);
+        }
+
+        // ==================== 3. 辅助与绘图 ====================
+        function updateBreadcrumb() {
+            let sName = '', instName = '';
+            businessData.scenes.forEach(s => s.subScenes.forEach(sub => {
+                if (sub.id === state.selectedSubScene) {
+                    sName = `${s.name} / ${sub.name}`;
+                    sub.instances.forEach(i => { if (i.id === state.selectedInstance) instName = i.name; });
+                }
+            }));
+            
+            document.getElementById('breadcrumb').innerHTML = `
+                <span class="text-gray-400">当前视图：</span>
+                <span class="font-medium text-gray-700">${sName}</span>
+                <span class="mx-2 text-gray-300">/</span>
+                <span class="font-bold ${state.selectedInstance === 'base' ? 'text-gray-600' : 'text-indigo-600'}">${instName}</span>
+            `;
+            
+            document.getElementById('current-mode-badge').innerText = state.selectedInstance === 'base' ? '全局基线标准' : '局点定制实例';
+            document.getElementById('current-mode-badge').className = `text-xs font-medium px-2.5 py-1 rounded-full border ${state.selectedInstance === 'base' ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`;
+        }
+
+        function drawConnections() {
+            const svg = document.getElementById('svg-canvas');
+            const scrollArea = document.getElementById('canvas-scroll-area');
+            svg.innerHTML = '';
+            
+            svg.style.width = Math.max(scrollArea.scrollWidth, scrollArea.clientWidth) + 'px';
+            svg.style.height = Math.max(scrollArea.scrollHeight, scrollArea.clientHeight) + 'px';
+
+            const sceneInterfaces = businessData.interfaces.filter(i => i.subScene === state.selectedSubScene);
+            
+            sceneInterfaces.forEach(interf => {
+                if (interf.type === 'inbound' && interf.targetIds) {
+                    const startEl = document.getElementById(interf.id);
+                    if (!startEl) return;
+
+                    interf.targetIds.forEach(targetId => {
+                        const endEl = document.getElementById(targetId);
+                        if (!endEl) return;
+
+                        const startRect = startEl.getBoundingClientRect();
+                        const endRect = endEl.getBoundingClientRect();
+                        const scrollRect = scrollArea.getBoundingClientRect();
+
+                        const startX = startRect.right - scrollRect.left + scrollArea.scrollLeft;
+                        const startY = startRect.top + startRect.height / 2 - scrollRect.top + scrollArea.scrollTop;
+                        const endX = endRect.left - scrollRect.left + scrollArea.scrollLeft;
+                        const endY = endRect.top + endRect.height / 2 - scrollRect.top + scrollArea.scrollTop;
+
+                        const curvature = 0.5;
+                        const cp1x = startX + (endX - startX) * curvature;
+                        const cp2x = endX - (endX - startX) * curvature;
+                        const pathString = `M ${startX} ${startY} C ${cp1x} ${startY}, ${cp2x} ${endY}, ${endX} ${endY}`;
+
+                        const pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        pathBg.setAttribute('d', pathString);
+                        pathBg.setAttribute('fill', 'none');
+                        pathBg.setAttribute('stroke', '#e2e8f0');
+                        pathBg.setAttribute('stroke-width', '4');
+                        svg.appendChild(pathBg);
+
+                        const pathAnim = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        pathAnim.setAttribute('d', pathString);
+                        pathAnim.setAttribute('fill', 'none');
+                        pathAnim.setAttribute('stroke', state.selectedInstance === 'base' ? '#94a3b8' : '#8b5cf6');
+                        pathAnim.setAttribute('stroke-width', '2');
+                        pathAnim.setAttribute('class', 'dash-line');
+                        svg.appendChild(pathAnim);
+
+                        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                        arrow.setAttribute('points', `0,-4 8,0 0,4`);
+                        arrow.setAttribute('fill', state.selectedInstance === 'base' ? '#94a3b8' : '#8b5cf6');
+                        arrow.setAttribute('transform', `translate(${endX - 4}, ${endY})`);
+                        svg.appendChild(arrow);
+                    });
+                }
+            });
+        }
+
+        // 初始化
+        window.onload = () => {
+            renderSidebar();
+            renderCanvas();
+            window.addEventListener('resize', () => { setTimeout(drawConnections, 100); });
+            document.getElementById('canvas-scroll-area').addEventListener('scroll', drawConnections);
+        };
+    </script>
+</body>
+</html>
