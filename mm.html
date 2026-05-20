@@ -7,85 +7,50 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 自定义滚动条 */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         /* 画布连线 SVG 容器 */
-        #svg-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
+        #svg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
 
         /* 节点连线动画 */
-        .dash-line {
-            stroke-dasharray: 6;
-            animation: dash 20s linear infinite;
-        }
-        @keyframes dash {
-            to { stroke-dashoffset: -200; }
-        }
+        .dash-line { stroke-dasharray: 6; animation: dash 20s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -200; } }
 
         /* 菜单样式复刻 */
         .menu-header-bg { background-color: #2b2b2b; }
         .menu-header-text { color: #8b5cf6; text-shadow: 0 0 10px rgba(139, 92, 246, 0.3); }
-        .menu-item-active { 
-            background-color: #f0f0f0; 
-            border-left: 3px solid #3b82f6; 
-            font-weight: 500;
-            color: #111827;
-        }
-        .menu-item-inactive {
-            border-left: 3px solid transparent;
-            color: #374151;
-        }
-        .menu-item-inactive:hover {
-            background-color: #f9fafb;
-        }
+        .menu-item-active { background-color: #f0f0f0; border-left: 3px solid #3b82f6; font-weight: 500; color: #111827; }
+        .menu-item-inactive { border-left: 3px solid transparent; color: #374151; }
+        .menu-item-inactive:hover { background-color: #f9fafb; }
+        
+        /* 树形组件样式 */
+        .tree-row { transition: background-color 0.15s; }
+        .tree-row:hover { background-color: #f8fafc; }
+        .tree-toggle-icon { transition: transform 0.2s; }
+        .tree-collapsed .tree-toggle-icon { transform: rotate(-90deg); }
+        .tree-line-v { border-left: 1px dashed #cbd5e1; }
     </style>
 </head>
 <body class="bg-gray-50 h-screen overflow-hidden flex font-sans">
 
     <!-- 左侧侧边栏 -->
     <div class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 relative z-20 shadow-sm">
-        <!-- 头部 LOGO -->
         <div class="h-14 menu-header-bg flex items-center px-4 flex-shrink-0">
-            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             <span class="ml-2 font-bold text-sm tracking-wide menu-header-text">三方接口智能定制</span>
         </div>
-
-        <!-- 菜单列表区 -->
-        <div class="flex-1 overflow-y-auto py-2" id="menu-container">
-            <!-- JavaScript 动态渲染菜单 -->
-        </div>
+        <div class="flex-1 overflow-y-auto py-2" id="menu-container"></div>
     </div>
 
-    <!-- 右侧主体内容 (画布) -->
+    <!-- 右侧主体内容 -->
     <div class="flex-1 flex flex-col relative overflow-hidden bg-gray-50">
         <!-- 顶栏状态 -->
         <div class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-20 shadow-sm flex-shrink-0">
             <div class="flex items-center">
-                <div class="flex items-center space-x-2 text-sm text-gray-500" id="breadcrumb">
-                    <!-- 面包屑动态渲染 -->
-                </div>
+                <div class="flex items-center space-x-2 text-sm text-gray-500" id="breadcrumb"></div>
             </div>
             <div class="flex items-center space-x-4">
                 <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200" id="current-mode-badge">
@@ -99,29 +64,185 @@
             <svg id="svg-canvas"></svg>
             <div class="max-w-6xl mx-auto flex justify-between relative z-10" id="graph-container">
                 <!-- 左列: Inbound 接口 -->
-                <div class="w-2/5 flex flex-col space-y-10" id="inbound-col"></div>
+                <div class="w-[45%] flex flex-col space-y-10 justify-center min-h-[600px]" id="inbound-col"></div>
                 <!-- 右列: Outbound 接口 -->
-                <div class="w-2/5 flex flex-col space-y-10 mt-16" id="outbound-col"></div>
+                <div class="w-[45%] flex flex-col space-y-8" id="outbound-col"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 接口详情弹窗 (Modal) -->
+    <div id="api-modal" class="fixed inset-0 bg-gray-900 bg-opacity-40 backdrop-blur-sm z-50 hidden flex justify-center items-center transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-[95%] max-w-7xl h-[90%] flex flex-col overflow-hidden transform transition-all border border-gray-200">
+            <!-- 弹窗头部 -->
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/80">
+                <div class="flex items-center space-x-4">
+                    <div class="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    </div>
+                    <div>
+                        <h3 id="modal-title" class="text-lg font-bold text-gray-800 leading-tight">接口详情</h3>
+                        <p id="modal-subtitle" class="text-xs text-gray-500 mt-0.5 font-mono">standardPayBill</p>
+                    </div>
+                    
+                    <!-- 格式切换器 -->
+                    <div id="modal-format-selector" class="ml-8 flex bg-gray-200/60 p-1 rounded-lg hidden">
+                        <button class="px-3 py-1.5 text-xs font-bold rounded-md bg-white text-blue-600 shadow-sm transition-all">HTTP + REST (JSON)</button>
+                        <button class="px-3 py-1.5 text-xs font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all">HTTP + XML</button>
+                        <button class="px-3 py-1.5 text-xs font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all">SOAP</button>
+                    </div>
+                </div>
+                <button onclick="closeApiModal()" class="text-gray-400 hover:text-gray-700 hover:bg-gray-200 p-2 rounded-full transition-colors focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <!-- 弹窗内容区 -->
+            <div class="flex-1 overflow-hidden flex bg-gray-100/50 p-4 gap-4">
+                <!-- Request -->
+                <div class="flex-[3] bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col overflow-hidden">
+                    <div class="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center justify-between">
+                        <span class="font-bold text-blue-800 text-sm flex items-center">
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                            Request 报文结构
+                        </span>
+                    </div>
+                    <div class="flex px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <div class="flex-[2.5]">字段名称 (Name)</div>
+                        <div class="flex-1">类型 (Type)</div>
+                        <div class="w-20 text-center">强制 (M/O)</div>
+                        <div class="flex-[3] pl-4">说明 (Desc)</div>
+                    </div>
+                    <div class="p-2 overflow-auto flex-1" id="modal-request"></div>
+                </div>
+                
+                <!-- Response -->
+                <div class="flex-[2] bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col overflow-hidden">
+                    <div class="bg-emerald-50 px-4 py-3 border-b border-emerald-100 flex items-center justify-between">
+                        <span class="font-bold text-emerald-800 text-sm flex items-center">
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Response 报文结构
+                        </span>
+                    </div>
+                     <div class="flex px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <div class="flex-[2.5]">字段名称 (Name)</div>
+                        <div class="flex-1">类型 (Type)</div>
+                        <div class="w-20 text-center">强制 (M/O)</div>
+                        <div class="flex-[3] pl-4">说明 (Desc)</div>
+                    </div>
+                    <div class="p-2 overflow-auto flex-1 relative" id="modal-response"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- SVG 图标库 -->
-    <template id="icon-book">
-        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-    </template>
-    <template id="icon-folder">
-        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-    </template>
-    <template id="icon-folder-open">
-        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
-    </template>
-    <template id="icon-file">
-        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-    </template>
+    <template id="icon-book"><svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg></template>
+    <template id="icon-folder"><svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg></template>
+    <template id="icon-folder-open"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg></template>
+    <template id="icon-file"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></template>
 
     <script>
-        // 核心数据模型
+        const participantFields = [
+            { name: 'IdentityType', type: 'string', required: 'M', desc: 'Entity identifier type. The entity type is identity type.' },
+            { name: 'IdentifierType', type: 'string', required: 'O', desc: 'Entity identifier type. The entity type is Identifier type, which uses the ID type.' },
+            { name: 'IdentifierValue', type: 'long', required: 'O', desc: 'Value of the entity identifier, which is the entity ID.' },
+            { name: 'ShortCode', type: 'string', required: 'O', desc: 'Short code of the initiator or the organization...' },
+            { name: 'Msisdn', type: 'string', required: 'O', desc: 'Msisdn of the initiator...' },
+            { name: 'GroupCode', type: 'string', required: 'O', desc: 'Indicates the group code when the requester is a group.' },
+            { name: 'SimpleKYC', type: 'List<Map>', required: 'O', desc: 'Single-valued kyc' },
+            {
+                name: 'MultipleKYC', type: 'Object', required: 'O', desc: 'Multi-valued KYC.',
+                children: [
+                    {
+                        name: 'IDDetails', type: 'List<Map>', required: 'O', desc: 'ID details',
+                        children: [
+                            { name: 'IDType', type: 'String', required: 'O', desc: 'Indicates the ID type.' },
+                            { name: 'IDNumber', type: 'String', required: 'O', desc: 'Certificate No.' },
+                            { name: 'EffectiveDate', type: 'String', required: 'O', desc: 'Effective time.' },
+                            { name: 'ExpiryDate', type: 'String', required: 'O', desc: 'Expiration time.' }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        // 提取公共的 Request 报文结构数据 (注意基线中 BillReferenceNumber 设为 'O')
+        const standardPayBillRequestData = [
+            { name: 'Header', type: 'object', required: 'M', desc: 'HTTP request header, protocol metadata of the client and server.' },
+            {
+                name: 'BodyHeader', type: 'object', required: 'M', desc: 'Metadata in the HTTP request body',
+                children: [ { name: 'RequestID', type: 'string', required: 'O', desc: 'Request ID, which is unique for each request.' } ]
+            },
+            {
+                name: 'Body', type: 'object', required: 'M', desc: 'Data in the HTTP request body.',
+                children: [
+                    // 基线中为 O，在马里定制中覆写为 M
+                    { name: 'BillReferenceNumber', type: 'string', required: 'O', desc: '账单参考号 (由查询接口返回)' },
+                    { name: 'Merchant', type: 'string', required: 'M', desc: '收款商户号' },
+                    { name: 'AccountNo', type: 'string', required: 'M', desc: '用户账号/户号' },
+                    { name: 'BillType', type: 'string', required: 'M', desc: '账单类型 (如 ELECTRICITY, WATER)' },
+                    {
+                        name: 'BillInfo', type: 'object', required: 'O', desc: 'Biller information.',
+                        children: [
+                            { name: 'AccountNo', type: 'string', required: 'O', desc: 'Biller account, usually a prepaid account.' },
+                            { name: 'BillReferenceNumber', type: 'string', required: 'O', desc: 'Bill No. Unique ID of a transaction.' },
+                            { name: 'BillType', type: 'string', required: 'O', desc: 'Biller type.' },
+                            { name: 'BillCode', type: 'string', required: 'O', desc: 'Code of different Billers in the Biller gateway.' },
+                            { name: 'InvoiceNumber', type: 'string', required: 'O', desc: 'Invoice No.' },
+                            { name: 'TransID', type: 'string', required: 'O', desc: 'Order ID in the Biller.' }
+                        ]
+                    },
+                    {
+                        name: 'TransInfo', type: 'object', required: 'O', desc: 'TransInfo',
+                        children: [
+                            { name: 'TransType', type: 'string', required: 'O', desc: 'Name of the transaction type.' },
+                            { name: 'TransAmount', type: 'string', required: 'O', desc: 'Main amount' },
+                            { name: 'TransCurrency', type: 'string', required: 'O', desc: 'Transaction Currency' }
+                        ]
+                    },
+                    { name: 'Initiator', type: 'object', required: 'O', desc: 'Initiator Information', children: participantFields },
+                    { name: 'TransparentParameter', type: 'object', required: 'O', desc: 'Transparent transmission parameter in the key-value format.', isReserved: 'transparent' },
+                    { name: 'ReferenceData', type: 'object', required: 'O', desc: 'Obtains the value of ReferenceData from the request.', isReserved: 'reference' }
+                ]
+            }
+        ];
+
+        // 提取公共的 Response 报文结构数据 (注意基线中 BillList 设为 'O')
+        const standardPayBillResponseData = [
+            {
+                name: 'BodyHeader', type: 'object', required: 'M', desc: 'Metadata in the HTTP request body, used to describe the body.',
+                children: [
+                    { name: 'RequestID', type: 'string', required: 'O', desc: 'Request ID, which is unique for each request.' }
+                ]
+            },
+            {
+                name: 'Body', type: 'object', required: 'M', desc: 'Data in the HTTP request body, parameter for implementing the service.',
+                children: [
+                    {
+                        name: 'BillInfo', type: 'object', required: 'O', desc: 'Biller information.',
+                        children: [
+                            { name: 'ResponseCode', type: 'string', required: 'O', desc: 'Original response code of the third-party system.' },
+                            { name: 'ResponseDesc', type: 'string', required: 'O', desc: 'Description of the third-party original response.' },
+                            { name: 'TransID', type: 'string', required: 'O', desc: 'Order ID in the Biller.' }
+                        ]
+                    },
+                    // 基线中为 O，在马里定制中覆写为 M
+                    { name: 'BillList', type: 'List<BillInfo>', required: 'O', desc: 'A list consisting of multiple BillInfo nodes.' },
+                    {
+                        name: 'TransInfo', type: 'object', required: 'O', desc: 'Transaction information on the Mobile Money 2.0 side.',
+                        children: [
+                            { name: 'ResponseCode', type: 'string', required: 'M', desc: 'The Mobile Money 2.0 system determines whether the operation is successful based on this field.' },
+                            { name: 'ResponseDesc', type: 'string', required: 'M', desc: 'Error description returned by the API Fabric.' }
+                        ]
+                    },
+                    { name: 'TransparentParameter', type: 'object', required: 'O', desc: 'Dynamic extended parameter in the key-value format.', isReserved: 'transparent' },
+                    { name: 'ReferenceData', type: 'object', required: 'O', desc: 'Reference data of a transaction.', isReserved: 'reference' }
+                ]
+            }
+        ];
+
+        // ==================== 核心数据模型 ====================
         const businessData = {
             scenes: [
                 {
@@ -130,139 +251,106 @@
                         {
                             id: 'utilities', name: '缴水电费',
                             instances: [
-                                { id: 'base', name: '全局基线标准版', type: 'baseline' },
+                                { id: 'base', name: 'public standard', type: 'baseline' },
                                 { id: 'mali_edm', name: '马里 EDM', type: 'custom' },
                                 { id: 'mali_energia', name: 'Mali ENERGIA', type: 'custom' }
-                            ]
-                        },
-                        {
-                            id: 'tv', name: 'TV频道',
-                            instances: [
-                                { id: 'base', name: '全局基线标准版', type: 'baseline' },
-                                { id: 'startimes', name: 'StarTimes 频道', type: 'custom' }
                             ]
                         }
                     ]
                 }
             ],
-            // 接口全集，拆分出 transparentParameters 和 referenceData
             interfaces: [
                 {
-                    id: 'In_PayBillCreate', name: '缴费单创建 (PayBillCreate)', type: 'inbound', targetIds: ['Out_VendorQuery', 'Out_VendorPay'], subScene: 'utilities',
-                    baseFields: ['transactionId', 'amount', 'currency'],
-                    transparentParameters: {
-                        'base': ['extData1', 'extData2'],
-                        'mali_edm': ['meterNumber (电表号)', 'customerName (户主名)'],
-                        'mali_energia': ['smartCardNo (智能卡号)', 'districtCode']
+                    id: 'In_PayBillCreate', name: '缴费单创建 (standardPayBill)', type: 'inbound', 
+                    desc: '作为入口接收外部支付请求，流程内协调各下游接口执行。',
+                    formats: ['HTTP+REST', 'HTTP+XML', 'SOAP'], 
+                    targetIds: ['Out_StandardPayBillQuery', 'Out_StandardPayBillPay', 'Out_StandardPayBillQueryTrans', 'Out_StandardPayBillConfirm'], 
+                    subScene: 'utilities',
+                    apiDetails: { request: standardPayBillRequestData, response: standardPayBillResponseData },
+                    // ===== 核心功能：局点级别字段覆盖规则 (Field Overrides) =====
+                    fieldOverrides: {
+                        'mali_edm': {
+                            request: { 
+                                'Body.BillReferenceNumber': { required: 'M', note: '马里 EDM 局点强制要求账单参考号' },
+                                'Body.ReferenceData': { note: '包含 PERIODE, NDOC, NOMABON' } // 新增引用参数提示
+                            },
+                            response: { 
+                                'Body.BillList': { required: 'M', note: '马里 EDM 局点强制要求返回账单列表' },
+                                'Body.ReferenceData': { note: '返回 PERIODE, NDOC, NOMABON' } // 新增引用参数提示
+                            }
+                        }
                     },
-                    referenceData: {
-                        'base': ['sys_trace_id'],
-                        'mali_edm': ['sys_trace_id', 'sys_tenant_id (租户ID)'],
-                        'mali_energia': ['sys_trace_id', 'client_ip (请求端IP)', 'sys_region_code']
-                    }
+                    transparentParameters: { 'mali_edm': ['meterNumber', 'customerName'], 'mali_energia': ['smartCardNo', 'districtCode'] },
+                    referenceData: { 'mali_edm': ['PERIODE', 'NDOC', 'NOMABON', 'sys_trace_id'], 'mali_energia': ['sys_trace_id', 'client_ip', 'sys_region_code'] }
+                },
+                // --- 4 个 Outbound 接口 ---
+                {
+                    id: 'Out_StandardPayBillQuery', name: '厂家账单查询 (standardPayBillQuery)', type: 'outbound', subScene: 'utilities',
+                    desc: '向第三方系统发送出站消息以查询账单信息。该过程在逐步处理模式下无需启用。',
+                    formats: ['HTTP+REST', 'HTTP+XML', 'SOAP'],
+                    apiDetails: { request: standardPayBillRequestData, response: standardPayBillResponseData },
+                    fieldOverrides: {
+                        'mali_edm': {
+                            request: { 
+                                'Body.BillReferenceNumber': { required: 'M', note: '联动入口级配置，马里必填' },
+                                'Body.ReferenceData': { note: '提取 PERIODE, NDOC, NOMABON' }
+                            },
+                            response: { 
+                                'Body.BillList': { required: 'M', note: '联动入口级配置，马里必返回' },
+                                'Body.ReferenceData': { note: '提取 PERIODE, NDOC, NOMABON' }
+                            }
+                        }
+                    },
+                    transparentParameters: { 'mali_edm': ['meterNumber (电表号)'] }, 
+                    referenceData: { 'mali_edm': ['PERIODE', 'NDOC', 'NOMABON'] }
                 },
                 {
-                    id: 'Out_VendorQuery', name: '厂家欠费查询 (VendorQuery)', type: 'outbound', subScene: 'utilities',
-                    baseFields: ['vendorCode', 'queryType'],
-                    transparentParameters: {
-                        'base': ['extData1'],
-                        'mali_edm': ['meterNumber (电表号)'],
-                        'mali_energia': ['smartCardNo (智能卡号)']
-                    },
-                    referenceData: {
-                        'base': ['sys_trace_id'],
-                        'mali_edm': ['sys_trace_id', 'sys_tenant_id'],
-                        'mali_energia': ['sys_trace_id']
-                    }
+                    id: 'Out_StandardPayBillPay', name: '厂家代付发起 (standardPayBillPay)', type: 'outbound', subScene: 'utilities',
+                    desc: '系统向第三方系统发送出站消息以支付账单。',
+                    apiDetails: { request: [{name: 'Body', type:'object', required:'M', children:[{name:'vendorCode', type:'string', required:'M'}, {name:'amount', type:'string', required:'M'}]}], response: [] },
+                    transparentParameters: { 'mali_edm': ['meterNumber', 'customerName', 'edm_token'], 'mali_energia': ['smartCardNo', 'energia_receipt'] },
+                    referenceData: { 'mali_edm': ['PERIODE', 'NDOC', 'NOMABON'], 'mali_energia': ['sys_trace_id', 'sys_region_code'] }
                 },
                 {
-                    id: 'Out_VendorPay', name: '厂家代付发起 (VendorPay)', type: 'outbound', subScene: 'utilities',
-                    baseFields: ['vendorCode', 'amount', 'payMethod'],
-                    transparentParameters: {
-                        'base': ['extData1', 'extData2'],
-                        'mali_edm': ['meterNumber', 'customerName', 'edm_token'],
-                        'mali_energia': ['smartCardNo', 'energia_receipt']
-                    },
-                    referenceData: {
-                        'base': ['sys_trace_id'],
-                        'mali_edm': ['sys_trace_id', 'sys_tenant_id'],
-                        'mali_energia': ['sys_trace_id', 'sys_region_code']
-                    }
+                    id: 'Out_StandardPayBillQueryTrans', name: '厂家交易查询 (standardPayBillQueryTrans)', type: 'outbound', subScene: 'utilities',
+                    desc: '系统向第三方系统发送出站消息以查询支付状态。',
+                    apiDetails: { request: [{name: 'Body', type:'object', required:'M', children:[{name:'vendorCode', type:'string', required:'M'}, {name:'transactionId', type:'string', required:'M'}]}], response: [] },
+                    transparentParameters: { 'mali_edm': ['edm_token'], 'mali_energia': ['energia_receipt'] },
+                    referenceData: { 'mali_edm': ['PERIODE', 'NDOC', 'NOMABON'], 'mali_energia': ['sys_trace_id', 'sys_region_code'] }
                 },
                 {
-                    id: 'In_TvSubscribe', name: '套餐开通 (TvSubscribe)', type: 'inbound', targetIds: ['Out_TvNotify'], subScene: 'tv',
-                    baseFields: ['packageId', 'duration', 'userId'],
-                    transparentParameters: {
-                        'base': ['extInfo'],
-                        'startimes': ['decoderSerialNumber (解码器号)', 'smartCardId']
-                    },
-                    referenceData: {
-                        'base': ['sys_trace_id'],
-                        'startimes': ['sys_trace_id', 'dealer_id (经销商ID)']
-                    }
-                },
-                {
-                    id: 'Out_TvNotify', name: '厂家开通通知 (TvNotify)', type: 'outbound', subScene: 'tv',
-                    baseFields: ['vendorCode', 'packageId'],
-                    transparentParameters: {
-                        'base': ['extInfo'],
-                        'startimes': ['decoderSerialNumber (解码器号)']
-                    },
-                    referenceData: {
-                        'base': ['sys_trace_id'],
-                        'startimes': ['sys_trace_id', 'dealer_id']
-                    }
+                    id: 'Out_StandardPayBillConfirm', name: '厂家交易确认 (standardPayBillConfirm)', type: 'outbound', subScene: 'utilities',
+                    desc: '系统向第三方系统发送出站消息以完成或取消交易。',
+                    apiDetails: { request: [{name: 'Body', type:'object', required:'M', children:[{name:'vendorCode', type:'string', required:'M'}, {name:'confirmStatus', type:'string', required:'M', desc: '确认状态(成功/失败)'}]}], response: [] },
+                    transparentParameters: { 'mali_edm': ['edm_token'] },
+                    referenceData: { 'mali_edm': ['PERIODE', 'NDOC', 'NOMABON'] }
                 }
             ]
         };
 
         // UI 状态
-        let state = {
-            expandedFolders: ['utilities'],
-            selectedSubScene: 'utilities',
-            selectedInstance: 'mali_edm'
-        };
+        let state = { expandedFolders: ['utilities'], selectedSubScene: 'utilities', selectedInstance: 'base' };
+        function getIconHtml(id) { return document.getElementById(id).innerHTML; }
 
-        function getIconHtml(templateId) {
-            return document.getElementById(templateId).innerHTML;
-        }
-
-        // ==================== 1. 渲染左侧菜单 ====================
+        // ==================== 1. 左侧菜单 ====================
         function renderSidebar() {
             const container = document.getElementById('menu-container');
-            let html = `
-                <div class="px-4 py-3 flex items-center cursor-pointer menu-item-inactive text-sm transition-colors" onclick="alert('系统概览开发中...')">
-                    ${getIconHtml('icon-book')} <span class="ml-3">全部概览</span>
-                </div>
-                <div class="px-4 py-2 mt-4 mb-1 text-xs text-gray-400">流程分类</div>
-            `;
-
+            let html = `<div class="px-4 py-3 flex items-center cursor-pointer menu-item-inactive text-sm"><span class="ml-3 font-bold text-gray-400 text-xs">FLOWS</span></div>`;
             businessData.scenes.forEach(scene => {
-                html += `<div class="px-4 py-2 mt-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider">${scene.name}</div>`;
-                
                 scene.subScenes.forEach(sub => {
                     const isExpanded = state.expandedFolders.includes(sub.id);
                     html += `
                         <div class="px-4 py-2.5 flex items-center justify-between cursor-pointer menu-item-inactive transition-colors" onclick="toggleFolder('${sub.id}')">
-                            <div class="flex items-center">
-                                ${isExpanded ? getIconHtml('icon-folder-open') : getIconHtml('icon-folder')}
-                                <span class="ml-3 text-sm">${sub.name}</span>
-                            </div>
-                        </div>
-                    `;
-
+                            <div class="flex items-center">${isExpanded ? getIconHtml('icon-folder-open') : getIconHtml('icon-folder')}<span class="ml-3 text-sm font-medium text-gray-700">${sub.name}</span></div>
+                        </div>`;
                     if (isExpanded) {
                         sub.instances.forEach(inst => {
-                            const isSelected = state.selectedSubScene === sub.id && state.selectedInstance === inst.id;
-                            const activeClass = isSelected ? 'menu-item-active' : 'menu-item-inactive';
-                            
+                            const activeClass = (state.selectedSubScene === sub.id && state.selectedInstance === inst.id) ? 'menu-item-active' : 'menu-item-inactive';
                             html += `
                                 <div class="py-2.5 pl-12 pr-4 flex items-center cursor-pointer transition-colors text-sm ${activeClass}" onclick="selectInstance('${sub.id}', '${inst.id}')">
-                                    ${getIconHtml('icon-file')}
-                                    <span class="ml-2">${inst.name}</span>
-                                    ${inst.type === 'custom' ? '<span class="ml-auto w-2 h-2 rounded-full bg-green-400"></span>' : ''}
-                                </div>
-                            `;
+                                    ${getIconHtml('icon-file')} <span class="ml-2">${inst.name}</span>
+                                    ${inst.type === 'custom' ? '<span class="ml-auto w-2 h-2 rounded-full bg-green-400 shadow-sm"></span>' : ''}
+                                </div>`;
                         });
                     }
                 });
@@ -271,201 +359,275 @@
         }
 
         window.toggleFolder = function(subId) {
-            if (state.expandedFolders.includes(subId)) {
-                state.expandedFolders = state.expandedFolders.filter(id => id !== subId);
-            } else {
-                state.expandedFolders.push(subId);
-            }
+            state.expandedFolders = state.expandedFolders.includes(subId) ? state.expandedFolders.filter(id => id !== subId) : [...state.expandedFolders, subId];
             renderSidebar();
         }
 
         window.selectInstance = function(subId, instId) {
-            state.selectedSubScene = subId;
-            state.selectedInstance = instId;
-            renderSidebar();
-            renderCanvas();
+            state.selectedSubScene = subId; state.selectedInstance = instId;
+            renderSidebar(); renderCanvas();
         }
 
-        // ==================== 2. 渲染右侧画布 ====================
+        // ==================== 2. 画布渲染 ====================
         function renderCanvas() {
-            updateBreadcrumb();
+            document.getElementById('breadcrumb').innerHTML = `<span class="font-bold text-gray-700">缴水电费</span><span class="mx-2 text-gray-300">/</span><span class="font-bold text-indigo-600">${state.selectedInstance === 'base' ? 'public standard' : '定制实例'}</span>`;
+            document.getElementById('current-mode-badge').innerText = state.selectedInstance === 'base' ? 'public standard' : '局点定制实例';
+            document.getElementById('current-mode-badge').className = `text-xs font-medium px-2.5 py-1 rounded-full border ${state.selectedInstance === 'base' ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`;
             
-            const inCol = document.getElementById('inbound-col');
-            const outCol = document.getElementById('outbound-col');
-            inCol.innerHTML = '';
-            outCol.innerHTML = '';
+            const inCol = document.getElementById('inbound-col'); const outCol = document.getElementById('outbound-col');
+            inCol.innerHTML = ''; outCol.innerHTML = '';
 
             const sceneInterfaces = businessData.interfaces.filter(i => i.subScene === state.selectedSubScene);
             
             sceneInterfaces.forEach(interf => {
                 const isBase = state.selectedInstance === 'base';
+                const transparentParams = interf.transparentParameters[state.selectedInstance] || [];
+                const referenceParams = interf.referenceData[state.selectedInstance] || [];
                 
-                // 获取透传参数与引用参数（如果没有定制，降级展示基础的空数据保护）
-                const transparentParams = interf.transparentParameters[state.selectedInstance] || interf.transparentParameters['base'] || [];
-                const referenceParams = interf.referenceData[state.selectedInstance] || interf.referenceData['base'] || [];
-                
+                // 透传参数区域渲染
+                let transparentContentHtml = isBase ? 
+                    `<div class="text-[11px] text-gray-400 bg-gray-50 p-2 border border-gray-100 border-dashed rounded leading-relaxed">此版本暂无具体参数。需在定制版本中制定。</div>` :
+                    (transparentParams.length > 0 ? transparentParams.map(f => `<div class="text-xs px-2 py-1.5 rounded font-mono border flex items-center bg-blue-50 text-blue-700 border-blue-200 shadow-sm">${f}</div>`).join('') : `<div class="text-[11px] text-gray-400 italic">无定制参数</div>`);
+
+                // 引用参数区域渲染
+                let referenceContentHtml = isBase ? 
+                    `<div class="text-[11px] text-gray-400 bg-gray-50 p-2 border border-gray-100 border-dashed rounded leading-relaxed">此版本暂无具体参数。需在定制版本中制定。</div>` :
+                    (referenceParams.length > 0 ? referenceParams.map(f => `<div class="text-xs px-2 py-1.5 rounded font-mono border flex items-center bg-purple-50 text-purple-700 border-purple-200 shadow-sm">${f}</div>`).join('') : `<div class="text-[11px] text-gray-400 italic">无定制参数</div>`);
+
+                // 递归计算字段总数 & 定制规则总数
+                let reqCount = 0; let resCount = 0;
+                let reqOverrideCount = 0; let resOverrideCount = 0;
+
+                const countNodes = (nodes, obj) => { nodes.forEach(n => { obj.count++; if (n.children) countNodes(n.children, obj); }); };
+                if(interf.apiDetails) {
+                    if(interf.apiDetails.request) { let c = {count:0}; countNodes(interf.apiDetails.request, c); reqCount = c.count; }
+                    if(interf.apiDetails.response) { let c = {count:0}; countNodes(interf.apiDetails.response, c); resCount = c.count; }
+                }
+
+                if (!isBase && interf.fieldOverrides && interf.fieldOverrides[state.selectedInstance]) {
+                    const ov = interf.fieldOverrides[state.selectedInstance];
+                    if (ov.request) reqOverrideCount = Object.keys(ov.request).length;
+                    if (ov.response) resOverrideCount = Object.keys(ov.response).length;
+                }
+                const totalOverrides = reqOverrideCount + resOverrideCount;
+
+                // 支持的格式标签
+                const formatsHtml = interf.formats ? interf.formats.map(fmt => `<span class="mr-1.5 px-1.5 py-0.5 border border-indigo-200 bg-indigo-50/50 text-indigo-500 rounded font-mono text-[9px]">${fmt}</span>`).join('') : '';
+
                 const cardHtml = `
-                    <div id="${interf.id}" class="bg-white border ${isBase ? 'border-gray-200' : 'border-indigo-100'} rounded-xl shadow-sm hover:shadow-md transition-shadow relative z-20 w-full overflow-hidden">
-                        <!-- 卡片头部 -->
-                        <div class="${isBase ? 'bg-gray-50 text-gray-700' : 'bg-indigo-50 text-indigo-900'} px-4 py-3 border-b ${isBase ? 'border-gray-200' : 'border-indigo-100'} flex items-center justify-between">
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white ${interf.type === 'inbound' ? 'bg-blue-500' : 'bg-teal-500'}">${interf.type.toUpperCase()}</span>
-                                <span class="font-medium text-sm">${interf.name}</span>
-                            </div>
-                        </div>
+                    <div id="${interf.id}" class="bg-white border ${isBase ? 'border-gray-200' : 'border-indigo-300'} rounded-xl shadow-sm hover:shadow-md transition-all relative z-20 w-full overflow-hidden flex flex-col">
                         
-                        <!-- 1. 预定义业务字段 -->
-                        <div class="px-4 py-3">
-                            <div class="text-xs text-gray-400 mb-2 font-medium flex items-center">
-                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                                预定义业务字段 (Standard)
-                            </div>
-                            <div class="space-y-1.5">
-                                ${interf.baseFields.map(f => `<div class="text-xs bg-gray-50 border border-gray-100 px-2 py-1.5 rounded text-gray-600 font-mono">${f}</div>`).join('')}
+                        <!-- Header -->
+                        <div class="${isBase ? 'bg-gray-50 text-gray-700' : 'bg-indigo-50/70 text-indigo-900'} px-4 py-3 border-b ${isBase ? 'border-gray-200' : 'border-indigo-200'} flex items-center justify-between">
+                            <div class="flex items-center space-x-2 truncate">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white ${interf.type === 'inbound' ? 'bg-blue-500' : 'bg-teal-500'}">${interf.type.toUpperCase()}</span>
+                                <span class="font-bold text-sm truncate">${interf.name}</span>
                             </div>
                         </div>
 
-                        <!-- 2. 透传定制参数区 (Transparent Parameters) -->
-                        ${transparentParams.length > 0 ? `
-                        <div class="px-4 py-3 bg-gradient-to-b from-transparent to-blue-50/30 border-t border-dashed border-gray-200">
+                        <!-- 格式与描述区 -->
+                        ${interf.formats || interf.desc ? `
+                        <div class="px-4 py-2.5 bg-gray-50/40 border-b border-gray-100 flex flex-col space-y-2">
+                            ${interf.formats ? `<div class="flex flex-wrap">${formatsHtml}</div>` : ''}
+                            ${interf.desc ? `
+                            <div class="flex items-start">
+                                <svg class="w-3.5 h-3.5 text-gray-400 mr-1.5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span class="text-[11px] text-gray-500 leading-snug">${interf.desc}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                        ` : ''}
+                        
+                        <!-- Request Details Abstract -->
+                        <div class="px-4 py-3">
                             <div class="flex justify-between items-center mb-2">
-                                <div class="text-xs font-medium flex items-center ${isBase ? 'text-gray-500' : 'text-blue-600'}">
-                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                                    透传定制参数 (Transparent)
+                                <div class="text-xs text-gray-500 font-bold flex items-center"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>标准接口结构</div>
+                                <button onclick="openApiModal('${interf.id}')" class="text-[11px] text-blue-600 hover:text-blue-800 font-bold flex items-center bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors border border-blue-100 shadow-sm">
+                                    查看完整 API <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                </button>
+                            </div>
+                            <div class="text-[11px] text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 rounded-full bg-green-400 mr-2 shrink-0"></div>深度解析 ${reqCount} 个请求 / ${resCount} 个响应节点
                                 </div>
+                                ${totalOverrides > 0 ? `<span class="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold border border-orange-200">包含 ${totalOverrides} 个定制结构规则</span>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Transparent Config -->
+                        <div class="px-4 py-3 bg-gradient-to-b ${isBase ? 'from-transparent to-gray-50/30' : 'from-transparent to-blue-50/30'} border-t border-dashed border-gray-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="text-xs font-bold flex items-center ${isBase ? 'text-gray-500' : 'text-blue-600'}"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>透传定制参数 (Transparent)</div>
                                 ${!isBase ? `<span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">局点定制</span>` : ''}
                             </div>
-                            <div class="space-y-1.5">
-                                ${transparentParams.map(f => `
-                                    <div class="text-xs px-2 py-1.5 rounded font-mono border flex items-center 
-                                        ${isBase ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm'}">
-                                        ${f}
-                                    </div>
-                                `).join('')}
-                            </div>
+                            <div class="space-y-1.5">${transparentContentHtml}</div>
                         </div>
-                        ` : ''}
 
-                        <!-- 3. 系统引用定制参数区 (Reference Data) -->
-                        ${referenceParams.length > 0 ? `
-                        <div class="px-4 py-3 bg-gradient-to-b from-transparent to-purple-50/30 border-t border-dashed border-gray-200">
+                        <!-- Reference Config -->
+                        <div class="px-4 py-3 bg-gradient-to-b ${isBase ? 'from-transparent to-gray-50/30' : 'from-transparent to-purple-50/30'} border-t border-dashed border-gray-200 flex-1">
                             <div class="flex justify-between items-center mb-2">
-                                <div class="text-xs font-medium flex items-center ${isBase ? 'text-gray-500' : 'text-purple-600'}">
-                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                    系统引用定制 (Reference)
-                                </div>
+                                <div class="text-xs font-bold flex items-center ${isBase ? 'text-gray-500' : 'text-purple-600'}"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>系统引用定制 (Reference)</div>
                                 ${!isBase ? `<span class="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">系统获取</span>` : ''}
                             </div>
-                            <div class="space-y-1.5">
-                                ${referenceParams.map(f => `
-                                    <div class="text-xs px-2 py-1.5 rounded font-mono border flex items-center 
-                                        ${isBase ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-purple-50 text-purple-700 border-purple-200 shadow-sm'}">
-                                        ${f}
-                                    </div>
-                                `).join('')}
-                            </div>
+                            <div class="space-y-1.5">${referenceContentHtml}</div>
                         </div>
-                        ` : ''}
                         
-                        <!-- 连线锚点 -->
-                        ${interf.type === 'inbound' ? `<div class="absolute right-0 top-1/2 -mt-2 -mr-2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full z-30 pointer-events-none anchor-out"></div>` : ''}
-                        ${interf.type === 'outbound' ? `<div class="absolute left-0 top-1/2 -mt-2 -ml-2 w-4 h-4 bg-white border-2 border-teal-400 rounded-full z-30 pointer-events-none anchor-in"></div>` : ''}
-                    </div>
-                `;
+                        ${interf.type === 'inbound' ? `<div class="absolute right-0 top-1/2 -mt-2 -mr-2 w-4 h-4 bg-white border-2 border-blue-400 rounded-full z-30 pointer-events-none anchor-out shadow-sm"></div>` : ''}
+                        ${interf.type === 'outbound' ? `<div class="absolute left-0 top-1/2 -mt-2 -ml-2 w-4 h-4 bg-white border-2 border-teal-400 rounded-full z-30 pointer-events-none anchor-in shadow-sm"></div>` : ''}
+                    </div>`;
 
-                if (interf.type === 'inbound') {
-                    inCol.insertAdjacentHTML('beforeend', cardHtml);
-                } else {
-                    outCol.insertAdjacentHTML('beforeend', cardHtml);
-                }
+                if (interf.type === 'inbound') inCol.insertAdjacentHTML('beforeend', cardHtml);
+                else outCol.insertAdjacentHTML('beforeend', cardHtml);
             });
-
             setTimeout(drawConnections, 50);
         }
 
-        // ==================== 3. 辅助与绘图 ====================
-        function updateBreadcrumb() {
-            let sName = '', instName = '';
-            businessData.scenes.forEach(s => s.subScenes.forEach(sub => {
-                if (sub.id === state.selectedSubScene) {
-                    sName = `${s.name} / ${sub.name}`;
-                    sub.instances.forEach(i => { if (i.id === state.selectedInstance) instName = i.name; });
-                }
-            }));
-            
-            document.getElementById('breadcrumb').innerHTML = `
-                <span class="text-gray-400">当前视图：</span>
-                <span class="font-medium text-gray-700">${sName}</span>
-                <span class="mx-2 text-gray-300">/</span>
-                <span class="font-bold ${state.selectedInstance === 'base' ? 'text-gray-600' : 'text-indigo-600'}">${instName}</span>
-            `;
-            
-            document.getElementById('current-mode-badge').innerText = state.selectedInstance === 'base' ? '全局基线标准' : '局点定制实例';
-            document.getElementById('current-mode-badge').className = `text-xs font-medium px-2.5 py-1 rounded-full border ${state.selectedInstance === 'base' ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`;
+        // ==================== 3. 弹窗与树形组件交互逻辑 ====================
+        window.openApiModal = function(interfaceId) {
+            const interf = businessData.interfaces.find(i => i.id === interfaceId);
+            if (!interf) return;
+
+            document.getElementById('modal-title').innerText = interf.name.split(' ')[0];
+            document.getElementById('modal-subtitle').innerText = interf.name.includes('(') ? interf.name.match(/\((.*?)\)/)[1] : interf.id;
+
+            // 获取当前局点的覆盖规则
+            const overrides = (state.selectedInstance !== 'base' && interf.fieldOverrides) ? interf.fieldOverrides[state.selectedInstance] : {};
+
+            // 渲染 Request 树
+            const reqContainer = document.getElementById('modal-request');
+            reqContainer.innerHTML = interf.apiDetails?.request?.length ? buildRichTreeHtml(interf.apiDetails.request, 0, '', overrides.request || {}) : '<div class="text-sm text-gray-400 text-center mt-10">暂无 Request 数据</div>';
+
+            // 渲染 Response 树
+            const resContainer = document.getElementById('modal-response');
+            resContainer.innerHTML = interf.apiDetails?.response?.length ? buildRichTreeHtml(interf.apiDetails.response, 0, '', overrides.response || {}) : '<div class="text-sm text-gray-400 text-center mt-10">暂无 Response 数据</div>';
+
+            document.getElementById('api-modal').classList.remove('hidden');
         }
 
-        function drawConnections() {
-            const svg = document.getElementById('svg-canvas');
-            const scrollArea = document.getElementById('canvas-scroll-area');
-            svg.innerHTML = '';
-            
-            svg.style.width = Math.max(scrollArea.scrollWidth, scrollArea.clientWidth) + 'px';
-            svg.style.height = Math.max(scrollArea.scrollHeight, scrollArea.clientHeight) + 'px';
+        window.closeApiModal = function() {
+            document.getElementById('api-modal').classList.add('hidden');
+        }
 
-            const sceneInterfaces = businessData.interfaces.filter(i => i.subScene === state.selectedSubScene);
-            
-            sceneInterfaces.forEach(interf => {
+        window.toggleTreeNode = function(event) {
+            const wrapper = event.currentTarget.parentElement;
+            wrapper.classList.toggle('tree-collapsed');
+            const childrenContainer = wrapper.querySelector('.tree-children');
+            if(childrenContainer) {
+                childrenContainer.style.display = wrapper.classList.contains('tree-collapsed') ? 'none' : 'block';
+            }
+        }
+
+        // 递归渲染树，并支持 Override 参数覆盖
+        function buildRichTreeHtml(nodes, level = 0, parentPath = '', overrides = {}) {
+            let html = '';
+            nodes.forEach((node, index) => {
+                const hasChildren = node.children && node.children.length > 0;
+                const paddingLeft = level * 1.5 + 0.5; 
+                
+                // 拼接当前字段的完整路径 (例如 Body.BillReferenceNumber)
+                const currentPath = parentPath ? `${parentPath}.${node.name}` : node.name;
+                
+                // 检查是否被定制覆盖
+                let displayNode = { ...node };
+                let isOverridden = false;
+                if (overrides[currentPath]) {
+                    displayNode = { ...displayNode, ...overrides[currentPath] };
+                    isOverridden = true;
+                }
+
+                // M/O 必填标记样式
+                let reqBadge = '';
+                if (isOverridden && displayNode.required !== node.required) {
+                    reqBadge = `<span class="text-[10px] font-bold text-orange-600 bg-orange-100 border border-orange-300 px-1.5 py-0.5 rounded shadow-sm">${displayNode.required} (定制)</span>`;
+                } else {
+                    reqBadge = displayNode.required === 'M' ? 
+                        `<span class="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">M</span>` : 
+                        `<span class="text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">O</span>`;
+                }
+
+                // 类型标记样式
+                const typeColor = (displayNode.type === 'object' || displayNode.type === 'Object' || displayNode.type.includes('List')) ? 'text-indigo-600 font-bold' : 'text-blue-500';
+                
+                // 预留节点及被覆盖节点的高亮样式
+                let rowBgClass = 'tree-row';
+                let namePrefix = '';
+                if (isOverridden) {
+                    rowBgClass = 'bg-orange-50/60 hover:bg-orange-100 border-l-2 border-orange-400';
+                    namePrefix = `<span class="text-[9px] bg-orange-500 text-white px-1 rounded mr-1">修改</span>`;
+                } else if(displayNode.isReserved === 'transparent') {
+                    rowBgClass = 'bg-blue-50/50 hover:bg-blue-50 border-l-2 border-blue-400';
+                    namePrefix = `<svg class="w-3.5 h-3.5 inline mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>`;
+                } else if(displayNode.isReserved === 'reference') {
+                    rowBgClass = 'bg-purple-50/50 hover:bg-purple-50 border-l-2 border-purple-400';
+                    namePrefix = `<svg class="w-3.5 h-3.5 inline mr-1 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>`;
+                }
+
+                // 如果有覆盖说明，追加到 desc 中
+                let displayDesc = displayNode.desc || '-';
+                if (isOverridden && displayNode.note) {
+                    displayDesc = `<span class="text-orange-600 font-medium">【定制说明: ${displayNode.note}】</span> ` + displayDesc;
+                }
+
+                html += `<div class="tree-wrapper border-b border-gray-100 last:border-b-0 text-sm">`;
+                
+                // 行数据
+                html += `
+                    <div class="flex items-center py-2 ${rowBgClass} cursor-default" ${hasChildren ? 'onclick="toggleTreeNode(event)" style="cursor:pointer;"' : ''}>
+                        <!-- Name 列 -->
+                        <div class="flex-[2.5] flex items-center" style="padding-left: ${paddingLeft}rem">
+                            ${hasChildren ? `<svg class="w-4 h-4 text-gray-400 mr-1.5 tree-toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>` : `<span class="w-5.5 inline-block mr-1.5"></span>`}
+                            <span class="font-mono font-medium ${hasChildren ? 'text-gray-800' : 'text-gray-600'}">${namePrefix}${displayNode.name}</span>
+                        </div>
+                        
+                        <!-- Type 列 -->
+                        <div class="flex-1 font-mono text-[11px] ${typeColor}">${displayNode.type || 'string'}</div>
+                        
+                        <!-- Required (M/O) 列 -->
+                        <div class="w-20 text-center">${reqBadge}</div>
+                        
+                        <!-- Desc 列 -->
+                        <div class="flex-[3] pl-4 text-xs text-gray-500 truncate" title="${displayNode.desc || ''}">${displayDesc}</div>
+                    </div>
+                `;
+
+                // 递归子节点传递路径
+                if (hasChildren) {
+                    html += `<div class="tree-children tree-line-v ml-${(level+1)*3+1} pl-1">${buildRichTreeHtml(node.children, level + 1, currentPath, overrides)}</div>`;
+                }
+                
+                html += `</div>`;
+            });
+            return html;
+        }
+
+        // 画布连线逻辑
+        function drawConnections() {
+            const svg = document.getElementById('svg-canvas'); const scrollArea = document.getElementById('canvas-scroll-area');
+            svg.innerHTML = ''; svg.style.width = Math.max(scrollArea.scrollWidth, scrollArea.clientWidth) + 'px'; svg.style.height = Math.max(scrollArea.scrollHeight, scrollArea.clientHeight) + 'px';
+            businessData.interfaces.filter(i => i.subScene === state.selectedSubScene).forEach(interf => {
                 if (interf.type === 'inbound' && interf.targetIds) {
                     const startEl = document.getElementById(interf.id);
                     if (!startEl) return;
-
                     interf.targetIds.forEach(targetId => {
                         const endEl = document.getElementById(targetId);
                         if (!endEl) return;
-
-                        const startRect = startEl.getBoundingClientRect();
-                        const endRect = endEl.getBoundingClientRect();
-                        const scrollRect = scrollArea.getBoundingClientRect();
-
-                        const startX = startRect.right - scrollRect.left + scrollArea.scrollLeft;
-                        const startY = startRect.top + startRect.height / 2 - scrollRect.top + scrollArea.scrollTop;
-                        const endX = endRect.left - scrollRect.left + scrollArea.scrollLeft;
-                        const endY = endRect.top + endRect.height / 2 - scrollRect.top + scrollArea.scrollTop;
-
-                        const curvature = 0.5;
-                        const cp1x = startX + (endX - startX) * curvature;
-                        const cp2x = endX - (endX - startX) * curvature;
-                        const pathString = `M ${startX} ${startY} C ${cp1x} ${startY}, ${cp2x} ${endY}, ${endX} ${endY}`;
-
-                        const pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        pathBg.setAttribute('d', pathString);
-                        pathBg.setAttribute('fill', 'none');
-                        pathBg.setAttribute('stroke', '#e2e8f0');
-                        pathBg.setAttribute('stroke-width', '4');
-                        svg.appendChild(pathBg);
-
-                        const pathAnim = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        pathAnim.setAttribute('d', pathString);
-                        pathAnim.setAttribute('fill', 'none');
-                        pathAnim.setAttribute('stroke', state.selectedInstance === 'base' ? '#94a3b8' : '#8b5cf6');
-                        pathAnim.setAttribute('stroke-width', '2');
-                        pathAnim.setAttribute('class', 'dash-line');
-                        svg.appendChild(pathAnim);
-
-                        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                        arrow.setAttribute('points', `0,-4 8,0 0,4`);
-                        arrow.setAttribute('fill', state.selectedInstance === 'base' ? '#94a3b8' : '#8b5cf6');
-                        arrow.setAttribute('transform', `translate(${endX - 4}, ${endY})`);
-                        svg.appendChild(arrow);
+                        const sr = startEl.getBoundingClientRect(), er = endEl.getBoundingClientRect(), scr = scrollArea.getBoundingClientRect();
+                        const sx = sr.right - scr.left + scrollArea.scrollLeft, sy = sr.top + sr.height / 2 - scr.top + scrollArea.scrollTop;
+                        const ex = er.left - scr.left + scrollArea.scrollLeft, ey = er.top + er.height / 2 - scr.top + scrollArea.scrollTop;
+                        const cp1x = sx + (ex - sx) * 0.5, cp2x = ex - (ex - sx) * 0.5;
+                        const d = `M ${sx} ${sy} C ${cp1x} ${sy}, ${cp2x} ${ey}, ${ex} ${ey}`;
+                        
+                        const pBg = document.createElementNS('http://www.w3.org/2000/svg', 'path'); pBg.setAttribute('d', d); pBg.setAttribute('fill', 'none'); pBg.setAttribute('stroke', '#e2e8f0'); pBg.setAttribute('stroke-width', '4'); svg.appendChild(pBg);
+                        const pAn = document.createElementNS('http://www.w3.org/2000/svg', 'path'); pAn.setAttribute('d', d); pAn.setAttribute('fill', 'none'); pAn.setAttribute('stroke', state.selectedInstance === 'base' ? '#94a3b8' : '#8b5cf6'); pAn.setAttribute('stroke-width', '2'); pAn.setAttribute('class', 'dash-line'); svg.appendChild(pAn);
+                        const arr = document.createElementNS('http://www.w3.org/2000/svg', 'polygon'); arr.setAttribute('points', `0,-4 8,0 0,4`); arr.setAttribute('fill', state.selectedInstance === 'base' ? '#94a3b8' : '#8b5cf6'); arr.setAttribute('transform', `translate(${ex - 4}, ${ey})`); svg.appendChild(arr);
                     });
                 }
             });
         }
 
-        // 初始化
         window.onload = () => {
-            renderSidebar();
-            renderCanvas();
+            state.selectedInstance = 'base';
+            renderSidebar(); renderCanvas();
             window.addEventListener('resize', () => { setTimeout(drawConnections, 100); });
             document.getElementById('canvas-scroll-area').addEventListener('scroll', drawConnections);
         };
